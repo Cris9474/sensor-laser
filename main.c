@@ -112,9 +112,9 @@ float lec() {
     }
 
     // Configuración de tiempos de espera
-    timeouts.ReadIntervalTimeout = 50;
-    timeouts.ReadTotalTimeoutConstant = 50;
-    timeouts.ReadTotalTimeoutMultiplier = 10;
+    timeouts.ReadIntervalTimeout = 10;
+    timeouts.ReadTotalTimeoutConstant = 10;
+    timeouts.ReadTotalTimeoutMultiplier = 5;
     timeouts.WriteTotalTimeoutConstant = 50;
     timeouts.WriteTotalTimeoutMultiplier = 10;
 
