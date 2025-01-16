@@ -17,12 +17,11 @@
 #define ID_COMBOBOX1 109
 #define ID_COMBOBOX2 110
 //PARA SABER CUAL OPCION DEL COMBOBOX SE ELIGIO
-char sensorE[10];
-char senalE[10];
+char sensorE[10]; //Sensor ( 1 o 2 )
+char senalE[10]; //Señal (Continua o Analogica)
 int indiceSenal = 0;
 float lec();
 float arranque();
-float diftemp();
 LRESULT CALLBACK ProcediementoVentana(HWND hwnd,UINT msg, WPARAM wParam,LPARAM lParam);
 int WINAPI WinMain(HINSTANCE hInstanciaActual,HINSTANCE hInstanciaPrevia,LPSTR lpCmdLinea,int nCmdShow){
     HWND ventana; //manejador de ventana
@@ -60,10 +59,10 @@ int WINAPI WinMain(HINSTANCE hInstanciaActual,HINSTANCE hInstanciaPrevia,LPSTR l
     //TAL VEZ HAY QUE BORRAR BUSCAR COMO APARECER TEXTO
     //CreateWindowEx(0,"EDIT","",ES_NUMBER|ES_AUTOHSCROLL|ES_CENTER|WS_CHILD|WS_VISIBLE,250,170,40,20,ventana,(HMENU)ID_TEMP,hInstanciaActual,NULL);
     CreateWindowW(L"Static",L" Nombre de la muestra: ", WS_VISIBLE|WS_CHILD|SS_NOTIFY,80,260,160,20,ventana,(HMENU)ID_LABEL,hInstanciaActual,NULL);
-    CreateWindowEx(0,"EDIT","",ES_NUMBER|ES_AUTOHSCROLL|ES_CENTER|WS_CHILD|WS_VISIBLE,250,260,40,20,ventana,(HMENU)ID_MUESTRA,hInstanciaActual,NULL);
+    CreateWindowEx(0,"EDIT","",ES_AUTOHSCROLL|ES_CENTER|WS_CHILD|WS_VISIBLE,250,260,150,20,ventana,(HMENU)ID_MUESTRA,hInstanciaActual,NULL);
     CreateWindowW(L"Static",L" Selecciona el sensor: ", WS_VISIBLE|WS_CHILD|SS_NOTIFY,80,340,150,20,ventana,(HMENU)ID_LABEL,hInstanciaActual,NULL);
-    CreateWindowW(L"Static",L" Tiempo de medición [s]: ", WS_VISIBLE|WS_CHILD|SS_NOTIFY,80,300,180,30,ventana,(HMENU)ID_TIEMP,hInstanciaActual,NULL);
-    CreateWindowEx(0,"EDIT","",ES_NUMBER|ES_AUTOHSCROLL|ES_CENTER|WS_CHILD|WS_VISIBLE,250,300,40,20,ventana,NULL,hInstanciaActual,NULL);
+    CreateWindowW(L"Static",L" Tiempo de medición [s]: ", WS_VISIBLE|WS_CHILD|SS_NOTIFY,80,300,180,30,ventana,(HMENU)ID_LABEL,hInstanciaActual,NULL);
+    CreateWindowEx(0,"EDIT","",ES_NUMBER|ES_AUTOHSCROLL|ES_CENTER|WS_CHILD|WS_VISIBLE,250,300,40,20,ventana,(HMENU)ID_TIEMP,hInstanciaActual,NULL);
     CreateWindowW(L"Static",L" Frecuencia [Hz]:", WS_VISIBLE|WS_CHILD|SS_NOTIFY,80,420,120,20,ventana,(HMENU)ID_LABEL,hInstanciaActual,NULL);
     CreateWindowW(L"Static",L" Tipo de señal: ", WS_VISIBLE|WS_CHILD|SS_NOTIFY,80,380,120,20,ventana,(HMENU)ID_LABEL,hInstanciaActual,NULL);
     CreateWindowEx(0,"BUTTON","Continuar",BS_CENTER|WS_CHILD|WS_VISIBLE,200,500,150,30,ventana,(HMENU)ID_BTNCONTINUAR,NULL,NULL);
@@ -129,7 +128,7 @@ float lec() {
     PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
     Sleep(800);  // Pausa de 0.8 segundos
 
-    // Enviar el comando 0x01 al sensor
+    // Enviar el comando 0x01 al sensor para iniciar transmision de datos 
     char command = 0x01;
     DWORD bytesWritten;
     WriteFile(hSerial, &command, 1, &bytesWritten, NULL);
@@ -165,13 +164,6 @@ float arranque() {
     return numtemp;  // Devuelve la temperatura inicial
 }
 
-float diftemp() {
-    float numactual;
-    numactual = lec();  // Llama a la función `lec` para obtener la temperatura actual
-    printf("La temperatura actual es: %.2f°C\n", numactual);
-    return numactual;
-}
-
 /*LRESULT : utiliza para representar el valor
  de retorno de los procedimientos de ventana.
  Suele ser un LARGO (de ahí la L ).
@@ -186,15 +178,15 @@ LRESULT CALLBACK ProcediementoVentana(HWND hwnd,UINT msg, WPARAM wParam,LPARAM l
     //Declaracion de variables para las imagenes de cabecera
     HWND himg1;
     HWND himg2;
-    static HWND hEdit;
+    static HWND hEdit; //Para visualizar la edicion de frecuencia
     HBITMAP cargar_img1;
     HBITMAP cargar_img2;
     cargar_img1= (HBITMAP)LoadImageW(NULL,L"cicata.bmp",IMAGE_BITMAP,0,0,LR_LOADFROMFILE);
     cargar_img2= (HBITMAP)LoadImageW(NULL,L"ipn.bmp",IMAGE_BITMAP,0,0,LR_LOADFROMFILE);
     //Declaracion de variables para el COMBOBOX
-    int nitems;
-    const char * sensores[] = {"Frontal","Trasero"};
-    nitems = (sizeof(sensores)/(sizeof(char*)));
+    int sensores;
+    const char * sensor[] = {"Frontal","Trasero"};
+    sensores = (sizeof(sensor)/(sizeof(char*)));
 
     int  senales;
     const char * senal[] = {"Continua","Modulada"};
@@ -203,14 +195,17 @@ LRESULT CALLBACK ProcediementoVentana(HWND hwnd,UINT msg, WPARAM wParam,LPARAM l
     switch(msg){
                 case WM_CREATE:{
                     float ini = arranque();
-                    CHAR temp[10];
+                    CHAR temp[10]; //variable de temperatura del sensor
                     sprintf(temp, "%.2f", ini);
                     CreateWindow("STATIC",temp,ES_CENTER|WS_CHILD|WS_VISIBLE,315,160,40,20,hwnd,NULL,NULL,NULL);
+                    //Sensor
                     CreateWindow("COMBOBOX","",CBS_DROPDOWNLIST|WS_CHILD|WS_VISIBLE,250,340,150,200,hwnd,(HMENU)ID_COMBOBOX1,NULL,NULL);
+                    //Señal
                     CreateWindow("COMBOBOX","",CBS_DROPDOWNLIST|WS_CHILD|WS_VISIBLE,250,380,150,200,hwnd,(HMENU)ID_COMBOBOX2,NULL,NULL);
-                    hEdit = CreateWindowEx(0,"EDIT","",ES_NUMBER|ES_AUTOHSCROLL|ES_CENTER|WS_CHILD|WS_VISIBLE|WS_BORDER,250,420,50,20,hwnd,(HMENU)ID_FREC,NULL,NULL);
-                    for(int i=0; i<nitems; i++){
-                        SendDlgItemMessage(hwnd,ID_COMBOBOX1,CB_ADDSTRING,0,(LPARAM)sensores[i]);
+                    //Frecuancia
+                    hEdit = CreateWindowEx(0,"EDIT","",ES_AUTOHSCROLL|ES_CENTER|WS_CHILD|WS_VISIBLE|WS_BORDER,250,420,50,20,hwnd,(HMENU)ID_FREC,NULL,NULL);
+                    for(int i=0; i<sensores; i++){
+                        SendDlgItemMessage(hwnd,ID_COMBOBOX1,CB_ADDSTRING,0,(LPARAM)sensor[i]);
                     }
                     for(int j=0; j<senales; j++){
                         SendDlgItemMessage(hwnd,ID_COMBOBOX2,CB_ADDSTRING,0,(LPARAM)senal[j]);
@@ -228,16 +223,32 @@ LRESULT CALLBACK ProcediementoVentana(HWND hwnd,UINT msg, WPARAM wParam,LPARAM l
                 case WM_COMMAND:{
                     switch (LOWORD(wParam)){
                         case ID_FREC:{//PASA CUANDO TOCAS ALGUN ID LLAMADO ID_LABEL
-                        indiceSenal = SendDlgItemMessage(hwnd, ID_COMBOBOX2,CB_GETCURSEL,0,0);//indica donde seleccione el combobox
-                        SendDlgItemMessage(hwnd,ID_COMBOBOX2,CB_GETLBTEXT,indiceSenal,(LPARAM)senalE);
-                        if(strcmp(senalE,"Continua")==0){
-                            EnableWindow(hEdit, FALSE);
-                        }else{
-                            EnableWindow(hEdit, TRUE);
-                        }
-                        break;    
+                            indiceSenal = SendDlgItemMessage(hwnd, ID_COMBOBOX2,CB_GETCURSEL,0,0);//indica donde seleccione el combobox
+                            SendDlgItemMessage(hwnd,ID_COMBOBOX2,CB_GETLBTEXT,indiceSenal,(LPARAM)senalE);//La String sleccionada se almancena en senalE
+                            if(strcmp(senalE,"Continua")==0){ //Para deshabilitar la seleccion de frecuencia
+                                EnableWindow(hEdit, FALSE);
+                            }else{
+                                EnableWindow(hEdit, TRUE);
+                            }
+                            break;    
                         }
                         case ID_BTNCONTINUAR:{
+                            float ini = arranque();
+                        //         char nombreMuestra[10];//Esta variable es para guardar el resultado del edit de no.Muestra como cadena
+                            char tMedicion[10];
+                            char frec[10];
+                  //CHECALO          GetDlgItemText(hwnd,ID_MUESTRA,nombreMuestra,10);//Obtiene el valor que es ingresado como string
+                            GetDlgItemText(hwnd,ID_TIEMP,tMedicion,10);
+                            GetDlgItemText(hwnd,ID_FREC,frec,10);
+                            printf("%s\n",tMedicion);
+                  //          double num1 =atof(nombreMuestra);//Convierte el string a un double para poder trabajar con el CORREGIR YA NO NECESITA CONVERSION
+                            double duracionSegundos =atof(tMedicion);
+                            //double frecuenciaHz =atof(frec);
+                            // Fijar la frecuencia máxima permitida
+                            const double frecuenciaHz = 6.0; // Máximo de 6 mediciones por segundo
+                            const int intervaloMs = (1000/frecuenciaHz); // Intervalo en milisegundos
+                            printf("%d",intervaloMs);
+                            const int totalLecturas = (int)(duracionSegundos * frecuenciaHz);
                             //MessageBox(hwnd,"Entramos","Salir.",MB_OKCANCEL|MB_ICONQUESTION);
                             //Para la lectura del archivo con los datos del sensor
                             FILE *fpPuntos = fopen("puntos.txt","w+");
@@ -245,35 +256,65 @@ LRESULT CALLBACK ProcediementoVentana(HWND hwnd,UINT msg, WPARAM wParam,LPARAM l
                                 MessageBox(hwnd, "No se pudo abrir puntos.txt", "Error", MB_ICONERROR);
                                 return -1;
                             }
-                            FILE *fp = popen("gnuplot -persist","w");
+                            FILE *fp = popen("gnuplot -persist","w"); // Abre GNUplot
                             if (fp == NULL) {
                                 MessageBox(hwnd, "No se pudo abrir gnuplot", "Error", MB_ICONERROR);
                                 fclose(fpPuntos);  // Cerrar el archivo si hay error en gnuplot
                                 return -1;
                             }
+                            //Comandos para diseñar la grafica
                             fprintf(fp, "set title 'Gráfica en Tiempo Real'\n");
                             fprintf(fp, "set xlabel 'Tiempo (s)'\n");
                             fprintf(fp, "set ylabel 'Temperatura'\n");
                             fprintf(fp, "set grid\n");
-                            fprintf(fp, "set yrange [0:100]\n"); // Rango en el eje Y para que sea claro en la visualización
-                            fprintf(fp, "plot '-' with lines title 'Sensor Data'\n");
-                            
-                            //int indiceItem1 = SendDlgItemMessage(hwnd,ID_COMBOBOX1,CB_GETCURSEL,0,0);
-                            //SendDlgItemMessage(hwnd,ID_COMBOBOX1,CB_GETLBTEXT,indiceItem1,(LPARAM)sensorE);
-                            //int indiceItem2 = SendDlgItemMessage(hwnd,ID_COMBOBOX2,CB_GETCURSEL,0,0);
-                            //SendDlgItemMessage(hwnd,ID_COMBOBOX1,CB_GETLBTEXT,indiceItem2,(LPARAM)sensorE);
-                            char noMuestra[10];//Esta variable es para guardar el resultado del edit de no.Muestra como cadena
-                            char tMedicion[10];
-                            char frec[10];
-                            GetDlgItemText(hwnd,ID_MUESTRA,noMuestra,10);//Obtiene el valor que es ingresado como string
-                            GetDlgItemText(hwnd,ID_TIEMP,tMedicion,10);
-                            GetDlgItemText(hwnd,ID_FREC,frec,10);
-                            double num1 =atof(noMuestra);//Convierte el string a un double para poder trabajar con el
-                            double num2 =atof(tMedicion);
-                            double num3 =atof(frec);
+                            //fprintf(fp, "set autoscale y\n"); // Rango en el eje Y para que sea claro en la visualización
+                            fprintf(fp, "set yrange [0:40]\n");
+                            fprintf(fp, "set xrange [0:%f]\n",duracionSegundos);
+                            //fprintf(fp, "set autoscale x\n");
+                            fprintf(fp, "set encoding utf8\n");//Para identificar caracteres especiales
+                            //fprintf(fp, "plot 'puntos.txt' with linespoints pointtype 7 linecolor 'blue' notitle\n");
+                            //fprintf(fp, "plot 'puntos.txt' using 1:2 with lines title 'Línea', 'puntos.txt' using 1:2 with points pointtype 7 pointsize 1 title 'Puntos'\n");
+                            fflush(fp);
+
+                            // **Primer punto** para inicializar la gráfica
+                            fprintf(fpPuntos, "0.000000 %f\n",ini); // Punto inicial ficticio
+                            fflush(fpPuntos); // Asegurarse de que se escriba en el archivo
+                            fprintf(fp, "plot 'puntos.txt' with linespoints pointtype 7 linecolor 'blue' notitle\n");
+                            fflush(fp); // Enviar comandos a gnuplot                                
+                            //VARIABLES PARA CHECAR LOS VALORE DE LOS COMBOBOX
                             int indiceSensor = SendDlgItemMessage(hwnd, ID_COMBOBOX1,CB_GETCURSEL,0,0);//indica donde seleccione el combobox
-                            SendDlgItemMessage(hwnd,ID_COMBOBOX1,CB_GETLBTEXT,indiceSensor,(LPARAM)sensorE);
+                            SendDlgItemMessage(hwnd,ID_COMBOBOX1,CB_GETLBTEXT,indiceSensor,(LPARAM)sensorE); //Se guarda el comando anterior en sensorE
+                            int indiceSenal = SendDlgItemMessage(hwnd, ID_COMBOBOX2,CB_GETCURSEL,0,0);//indica donde seleccione el combobox
+                            SendDlgItemMessage(hwnd,ID_COMBOBOX2,CB_GETLBTEXT,indiceSenal,(LPARAM)senalE); //Se guarda el comando anterior en senalE
+
                             if(strcmp(sensorE,"Frontal")==0){
+                                printf("Aqui ando1");
+                                if(strcmp(senalE,"Continua")==0){
+                                    printf("Aqui ando3");
+                                    if (duracionSegundos <= 0) {
+                                        printf("%f",duracionSegundos);
+                                        MessageBox(hwnd, "Duración o frecuencia inválida", "Error", MB_ICONERROR);
+                                        fclose(fpPuntos);
+                                        return -1;
+                                    }                                    
+                                    // Realizar lecturas en bucle
+                                    for (int i = 1; i < totalLecturas; i++) {
+                                        float lectura = lec(); // Obtener la temperatura desde el sensor
+                                        double tiempo = (double)i / frecuenciaHz; // Calcular tiempo actual
+                                        // Guardar datos en el archivo y enviarlos a GNUplot
+                                        fprintf(fpPuntos, "%f %f\n", tiempo, lectura);
+                                        fflush(fpPuntos);
+
+                                        fprintf(fp,"replot\n");
+                                        fflush(fp);
+                                        Sleep(intervaloMs); // Esperar hasta la siguiente medición
+                                    }
+                                    fclose(fpPuntos);
+                                    pclose(fp); //Cerrar GNUplot
+                                }else{
+
+                                }
+                            }else if(strcmp(sensorE,"Trasero")==0){
                                 if(strcmp(senalE,"Continua")==0){
                                     printf("Aqui ando3");
                                     fprintf(fpPuntos,"1.0 2.0\n");
@@ -287,14 +328,7 @@ LRESULT CALLBACK ProcediementoVentana(HWND hwnd,UINT msg, WPARAM wParam,LPARAM l
                                         return -1;
                                     }
                                     fprintf(fp,"plot \"puntos.txt\" with lines\n");
-                                    fclose(fp);
-                                }else{
-
-                                }
-
-                            }else if(strcmp(sensorE,"Trasero")==0){
-                                if(strcmp(senalE,"Continua")==0){
-                                    
+                                    fclose(fp);    
                                 }else{
 
                                 }    
