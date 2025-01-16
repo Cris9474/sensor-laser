@@ -279,7 +279,8 @@ LRESULT CALLBACK ProcediementoVentana(HWND hwnd,UINT msg, WPARAM wParam,LPARAM l
                             // **Primer punto** para inicializar la gráfica
                             fprintf(fpPuntos, "0.000000 %f\n",ini); // Punto inicial ficticio
                             fflush(fpPuntos); // Asegurarse de que se escriba en el archivo
-                            fprintf(fp, "plot 'puntos.txt' with linespoints pointtype 7 linecolor 'blue' notitle\n");
+                            fprintf(fp, "plot 'puntos.txt' with lines linecolor 'blue' notitle\n");
+                            //fprintf(fp, "plot 'puntos.txt' with linespoints pointtype 7 linecolor 'blue' notitle\n");
                             fflush(fp); // Enviar comandos a gnuplot                                
                             //VARIABLES PARA CHECAR LOS VALORE DE LOS COMBOBOX
                             int indiceSensor = SendDlgItemMessage(hwnd, ID_COMBOBOX1,CB_GETCURSEL,0,0);//indica donde seleccione el combobox
