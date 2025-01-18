@@ -87,6 +87,7 @@ float lec() {
 
     // Abrir el puerto COM (cambia "COM5" por el puerto que estás utilizando)
     hSerial = CreateFile("COM5", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    SetupComm(hSerial, 1024, 1024); // Tamaño del búfer RX y TX a 1024 bytes MEJORAR RENDIMIENTO
     if (hSerial == INVALID_HANDLE_VALUE) {
         printf("Error al abrir el puerto serial\n");
         exit(1);
@@ -112,12 +113,12 @@ float lec() {
     }
 
     // Configuración de tiempos de espera
-    timeouts.ReadIntervalTimeout = 10;
-    timeouts.ReadTotalTimeoutConstant = 10;
-    timeouts.ReadTotalTimeoutMultiplier = 5;
-    timeouts.WriteTotalTimeoutConstant = 50;
-    timeouts.WriteTotalTimeoutMultiplier = 10;
-
+    timeouts.ReadIntervalTimeout = 1;
+    timeouts.ReadTotalTimeoutConstant = 0;
+    timeouts.ReadTotalTimeoutMultiplier = 0;
+    timeouts.WriteTotalTimeoutConstant = 0;
+    timeouts.WriteTotalTimeoutMultiplier = 0;
+    SetCommTimeouts(hSerial, &timeouts);//MEJORAR RENDIMIENTO
     if (!SetCommTimeouts(hSerial, &timeouts)) {
         printf("Error al configurar los tiempos de espera del puerto serial\n");
         CloseHandle(hSerial);
@@ -134,22 +135,45 @@ float lec() {
     WriteFile(hSerial, &command, 1, &bytesWritten, NULL);
 
     // Esperar 0.01 segundos antes de leer la respuesta
-    Sleep(10);
+    Sleep(20);
 
     // Leer 2 bytes de la respuesta del sensor
-    ReadFile(hSerial, buffer, 2, &bytesRead, NULL);
+    //ReadFile(hSerial, buffer, 2, &bytesRead, NULL);
+//
+    //if (bytesRead < 2) {
+    //    printf("Error al leer datos del sensor\n");
+    //    CloseHandle(hSerial);
+    //    exit(1);
+    //}
+//
+    //// Convertir los bytes recibidos en temperatura
+    //int16_t temp1 = (int8_t)buffer[0];  // Byte 1
+    //int16_t temp2 = (int8_t)buffer[1];  // Byte 2
+//
+    //float temsen = (((temp1 * 256) + temp2 - 10000) / 100.0);
 
-    if (bytesRead < 2) {
-        printf("Error al leer datos del sensor\n");
-        CloseHandle(hSerial);
-        exit(1);
+    //INTENTO DE LEER EN MODO ASINCRONO 
+    #define BUFFER_SIZE 1024
+    char buffer[BUFFER_SIZE];
+    //DWORD bytesRead;
+    float temsen;
+
+    while (1) {
+        if (ReadFile(hSerial, buffer, BUFFER_SIZE, &bytesRead, NULL)) {
+            if (bytesRead > 0) {
+                // Procesar datos en buffer
+                for (DWORD i = 0; i < bytesRead; i += 2) {
+                    int16_t measurement = (int8_t)buffer[i] * 256 + (int8_t)buffer[i + 1];
+                    float temperature = ((measurement - 10000) / 100.0);
+                    temsen=temperature;
+                    printf("Temperatura: %.2f\n", temperature);
+                }
+            }
+        } else {
+            printf("Error al leer del puerto serial\n");
+            break;
+        }
     }
-
-    // Convertir los bytes recibidos en temperatura
-    int16_t temp1 = (int8_t)buffer[0];  // Byte 1
-    int16_t temp2 = (int8_t)buffer[1];  // Byte 2
-
-    float temsen = ((temp1 * 255.987) + temp2 - 10000) / 100.0;
 
     // Cerrar el puerto serial
     CloseHandle(hSerial);
