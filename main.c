@@ -16,6 +16,10 @@
 #define ID_TIEMP 108
 #define ID_COMBOBOX1 109
 #define ID_COMBOBOX2 110
+
+#define BUFFER_SIZE 1024
+//char buffer[BUFFER_SIZE];
+
 //PARA SABER CUAL OPCION DEL COMBOBOX SE ELIGIO
 char sensorE[10]; //Sensor ( 1 o 2 )
 char senalE[10]; //Señal (Continua o Analogica)
@@ -83,7 +87,11 @@ float lec() {
     DCB dcbSerialParams = {0};
     COMMTIMEOUTS timeouts = {0};
     DWORD bytesRead;
-    char buffer[2];  // Para almacenar los 2 bytes de la respuesta
+    //char buffer[2];  // Para almacenar los 2 bytes de la respuesta
+
+    char tempBuffer[2];        // Para almacenar 2 bytes por medición
+    char buffer[1024];         // Búfer acumulador
+    int bufferIndex = 0; 
 
     // Abrir el puerto COM (cambia "COM5" por el puerto que estás utilizando)
     hSerial = CreateFile("COM5", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
@@ -125,7 +133,6 @@ float lec() {
         exit(1);
     }
 
-    // Limpiar buffers y enviar comando
     PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
     Sleep(800);  // Pausa de 0.8 segundos
 
@@ -135,44 +142,57 @@ float lec() {
     WriteFile(hSerial, &command, 1, &bytesWritten, NULL);
 
     // Esperar 0.01 segundos antes de leer la respuesta
-    Sleep(20);
+    Sleep(400);
 
     // Leer 2 bytes de la respuesta del sensor
-    //ReadFile(hSerial, buffer, 2, &bytesRead, NULL);
-//
-    //if (bytesRead < 2) {
-    //    printf("Error al leer datos del sensor\n");
-    //    CloseHandle(hSerial);
-    //    exit(1);
-    //}
-//
-    //// Convertir los bytes recibidos en temperatura
-    //int16_t temp1 = (int8_t)buffer[0];  // Byte 1
-    //int16_t temp2 = (int8_t)buffer[1];  // Byte 2
-//
-    //float temsen = (((temp1 * 256) + temp2 - 10000) / 100.0);
+    ReadFile(hSerial, buffer, 2, &bytesRead, NULL);
 
-    //INTENTO DE LEER EN MODO ASINCRONO 
-    #define BUFFER_SIZE 1024
-    char buffer[BUFFER_SIZE];
+    if (bytesRead < 2) {
+        printf("Error al leer datos del sensor\n");
+        CloseHandle(hSerial);
+        exit(1);
+    }
+
+    // Convertir los bytes recibidos en temperatura
+    int16_t temp1 = (int8_t)buffer[0];  // Byte 1
+    int16_t temp2 = (int8_t)buffer[1];  // Byte 2
+
+    float temsen = (((temp1 * 256) + temp2 - 10000) / 100.0);
+   // INTENTO DE LEER EN MODO ASINCRONO 
     //DWORD bytesRead;
-    float temsen;
-
+    //float temsen,temperature=0.0;
+    
     while (1) {
-        if (ReadFile(hSerial, buffer, BUFFER_SIZE, &bytesRead, NULL)) {
-            if (bytesRead > 0) {
-                // Procesar datos en buffer
-                for (DWORD i = 0; i < bytesRead; i += 2) {
-                    int16_t measurement = (int8_t)buffer[i] * 256 + (int8_t)buffer[i + 1];
-                    float temperature = ((measurement - 10000) / 100.0);
-                    temsen=temperature;
-                    printf("Temperatura: %.2f\n", temperature);
-                }
-            }
+       // if (ReadFile(hSerial, buffer, BUFFER_SIZE, &bytesRead, NULL)) {
+            // Leer datos del puerto serial
+    if (ReadFile(hSerial, tempBuffer, sizeof(tempBuffer), &bytesRead, NULL)) {
+        // Agregar datos leídos al búfer acumulador
+        for (DWORD i = 0; i < bytesRead; i++) {
+            buffer[bufferIndex++] = tempBuffer[i];
         } else {
             printf("Error al leer del puerto serial\n");
             break;
-        }
+        
+        }}}
+
+        // Procesar datos en paquetes de 2 bytes
+        //while (bufferIndex >= 2) {
+        //    int16_t measurement = (int8_t)buffer[0] * 256 + (int8_t)buffer[1];
+        //    float temperature = ((measurement - 10000) / 100.0);
+//
+        //    // Imprimir la temperatura
+        //    printf("Temperatura: %.2f\n", temperature);
+//
+        //    // Desplazar el contenido del búfer
+        //    for (int i = 2; i < bufferIndex; i++) {
+        //        buffer[i - 2] = buffer[i];
+        //    }
+        //    bufferIndex -= 2;
+        //}
+        //} else {
+        //    printf("Error al leer del puerto serial\n");
+        //    break;
+        //}
     }
 
     // Cerrar el puerto serial
