@@ -87,11 +87,7 @@ float lec() {
     DCB dcbSerialParams = {0};
     COMMTIMEOUTS timeouts = {0};
     DWORD bytesRead;
-    //char buffer[2];  // Para almacenar los 2 bytes de la respuesta
-
-    char tempBuffer[2];        // Para almacenar 2 bytes por medición
-    char buffer[1024];         // Búfer acumulador
-    int bufferIndex = 0; 
+    char buffer[2];  // Para almacenar los 2 bytes de la respuesta
 
     // Abrir el puerto COM (cambia "COM5" por el puerto que estás utilizando)
     hSerial = CreateFile("COM5", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
@@ -126,13 +122,13 @@ float lec() {
     timeouts.ReadTotalTimeoutMultiplier = 0;
     timeouts.WriteTotalTimeoutConstant = 0;
     timeouts.WriteTotalTimeoutMultiplier = 0;
-    SetCommTimeouts(hSerial, &timeouts);//MEJORAR RENDIMIENTO
     if (!SetCommTimeouts(hSerial, &timeouts)) {
         printf("Error al configurar los tiempos de espera del puerto serial\n");
         CloseHandle(hSerial);
         exit(1);
     }
 
+    // Limpiar buffers y enviar comando
     PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
     Sleep(800);  // Pausa de 0.8 segundos
 
@@ -142,7 +138,7 @@ float lec() {
     WriteFile(hSerial, &command, 1, &bytesWritten, NULL);
 
     // Esperar 0.01 segundos antes de leer la respuesta
-    Sleep(400);
+    Sleep(10);
 
     // Leer 2 bytes de la respuesta del sensor
     ReadFile(hSerial, buffer, 2, &bytesRead, NULL);
@@ -157,23 +153,28 @@ float lec() {
     int16_t temp1 = (int8_t)buffer[0];  // Byte 1
     int16_t temp2 = (int8_t)buffer[1];  // Byte 2
 
-    float temsen = (((temp1 * 256) + temp2 - 10000) / 100.0);
+    float temsen = ((temp1 * 255.987) + temp2 - 10000) / 100.0;
+
+    // Cerrar el puerto serial
+    CloseHandle(hSerial);
+
+    return temsen;
+}
    // INTENTO DE LEER EN MODO ASINCRONO 
     //DWORD bytesRead;
     //float temsen,temperature=0.0;
-    
-    while (1) {
+    ///while (1) {
        // if (ReadFile(hSerial, buffer, BUFFER_SIZE, &bytesRead, NULL)) {
             // Leer datos del puerto serial
-    if (ReadFile(hSerial, tempBuffer, sizeof(tempBuffer), &bytesRead, NULL)) {
-        // Agregar datos leídos al búfer acumulador
-        for (DWORD i = 0; i < bytesRead; i++) {
-            buffer[bufferIndex++] = tempBuffer[i];
-        } else {
-            printf("Error al leer del puerto serial\n");
-            break;
-        
-        }}}
+    //if (ReadFile(hSerial, tempBuffer, sizeof(tempBuffer), &bytesRead, NULL)) {
+    //    // Agregar datos leídos al búfer acumulador
+    //    for (DWORD i = 0; i < bytesRead; i++) {
+    //        buffer[bufferIndex++] = tempBuffer[i];
+    //    } else {
+    //        printf("Error al leer del puerto serial\n");
+    //        break;
+    //    
+    //    }}
 
         // Procesar datos en paquetes de 2 bytes
         //while (bufferIndex >= 2) {
@@ -193,13 +194,6 @@ float lec() {
         //    printf("Error al leer del puerto serial\n");
         //    break;
         //}
-    }
-
-    // Cerrar el puerto serial
-    CloseHandle(hSerial);
-
-    return temsen;
-}
 
 float arranque() {
     float numtemp;
