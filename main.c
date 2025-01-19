@@ -81,17 +81,18 @@ int WINAPI WinMain(HINSTANCE hInstanciaActual,HINSTANCE hInstanciaPrevia,LPSTR l
 
 }
 
-// Función para leer la temperatura del sensor a través del puerto serial
 float lec() {
-    HANDLE hSerial;
-    DCB dcbSerialParams = {0};
-    COMMTIMEOUTS timeouts = {0};
-    DWORD bytesRead;
+    HANDLE hSerial;  // Identificador del puerto serial COM5
+    DCB dcbSerialParams = {0};  // Contiene los ajustes necesarios para que el puerto serial funcione correctamente, como velocidad de transmisión, formato de datos, bits de parada, paridad
+    COMMTIMEOUTS timeouts = {0};  // Tiempos de espera en la comunicación serial
+    DWORD bytesRead;  // Se utiliza para almacenar la cantidad de bytes que realmente se leen desde el puerto serial durante una operación de lectura
+    DWORD bytesWritten;
+    char command = 0x01;
     char buffer[2];  // Para almacenar los 2 bytes de la respuesta
+    float temsen;
 
     // Abrir el puerto COM (cambia "COM5" por el puerto que estás utilizando)
     hSerial = CreateFile("COM5", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-    SetupComm(hSerial, 1024, 1024); // Tamaño del búfer RX y TX a 1024 bytes MEJORAR RENDIMIENTO
     if (hSerial == INVALID_HANDLE_VALUE) {
         printf("Error al abrir el puerto serial\n");
         exit(1);
@@ -99,7 +100,7 @@ float lec() {
 
     // Configurar parámetros del puerto serial
     dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-    if (!GetCommState(hSerial, &dcbSerialParams)) {
+    if (!GetCommState(hSerial, &dcbSerialParams)) {  
         printf("Error al obtener el estado del puerto serial\n");
         CloseHandle(hSerial);
         exit(1);
@@ -117,83 +118,64 @@ float lec() {
     }
 
     // Configuración de tiempos de espera
-    timeouts.ReadIntervalTimeout = 1;
-    timeouts.ReadTotalTimeoutConstant = 0;
-    timeouts.ReadTotalTimeoutMultiplier = 0;
-    timeouts.WriteTotalTimeoutConstant = 0;
-    timeouts.WriteTotalTimeoutMultiplier = 0;
+    timeouts.ReadIntervalTimeout = 50;  // Tiempo en milisegundos para esperar hasta la recepción de datos
+    timeouts.ReadTotalTimeoutConstant = 50;  // Timeout fijo en milisegundos
+    timeouts.ReadTotalTimeoutMultiplier = 10;  // Timeout multiplicador
+    timeouts.WriteTotalTimeoutConstant = 50;
+    timeouts.WriteTotalTimeoutMultiplier = 10;
+
     if (!SetCommTimeouts(hSerial, &timeouts)) {
         printf("Error al configurar los tiempos de espera del puerto serial\n");
         CloseHandle(hSerial);
         exit(1);
     }
 
-    // Limpiar buffers y enviar comando
-    PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
-    Sleep(800);  // Pausa de 0.8 segundos
+    PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);  // Limpiar buffers
+    Sleep(800);  // Pausa de 0.1 segundos
 
-    // Enviar el comando 0x01 al sensor para iniciar transmision de datos 
-    char command = 0x01;
-    DWORD bytesWritten;
+    // Enviar el comando 0x01 al sensor para iniciar transmisión de datos
     WriteFile(hSerial, &command, 1, &bytesWritten, NULL);
+    Sleep(10);  // Esperar 0.01 segundos antes de leer la respuesta
 
-    // Esperar 0.01 segundos antes de leer la respuesta
-    Sleep(10);
+    // Bucle para leer continuamente los datos del sensor
+    while (1) {
+        // Limpiar buffers de vez en cuando, no constantemente
+        PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
+        WriteFile(hSerial, &command, 1, &bytesWritten, NULL);
+        Sleep(20);
+        // Leer 2 bytes de la respuesta del sensor
+        ReadFile(hSerial, buffer, 2, &bytesRead, NULL);
+        
+        if (bytesRead < 2) {  // Verificar si no se leyeron datos suficientes
+            PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);  // Limpiar buffers
+            //Sleep(800);  // Pausa de 0.1 segundos
+            //WriteFile(hSerial, &command, 1, &bytesWritten, NULL);  // Enviar nuevamente el comando al sensor
+            Sleep(100);
+            //ReadFile(hSerial, buffer, 2, &bytesRead, NULL);
+            //Sleep(10);
+            // printf("Error al leer datos del sensor\n");
+            // Sleep(100);  // Pequeña pausa antes de reintentar la lectura
+            continue;
+        }
 
-    // Leer 2 bytes de la respuesta del sensor
-    ReadFile(hSerial, buffer, 2, &bytesRead, NULL);
+        // Convertir los bytes recibidos en temperatura
+        int16_t temp1 = (int8_t)buffer[0];  // Byte 1
+        int16_t temp2 = (int8_t)buffer[1];  // Byte 2
 
-    if (bytesRead < 2) {
-        printf("Error al leer datos del sensor\n");
+        float temsen = ((temp1 * 255.987) + temp2 - 10000) / 100.0;
+        printf("Temperatura: %.2f\n", temsen);
+        //PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);  // Limpiar buffers
+        //Sleep(10);
+        //WriteFile(hSerial, &command, 1, &bytesWritten, NULL);  // Enviar nuevamente el comando al sensor
+        //Sleep(10);  // Ajusta el tiempo entre mediciones si es necesario
+        // Cerrar el puerto serial
         CloseHandle(hSerial);
-        exit(1);
+        return temsen;
     }
 
-    // Convertir los bytes recibidos en temperatura
-    int16_t temp1 = (int8_t)buffer[0];  // Byte 1
-    int16_t temp2 = (int8_t)buffer[1];  // Byte 2
-
-    float temsen = ((temp1 * 255.987) + temp2 - 10000) / 100.0;
-
-    // Cerrar el puerto serial
-    CloseHandle(hSerial);
-
-    return temsen;
+    
 }
-   // INTENTO DE LEER EN MODO ASINCRONO 
-    //DWORD bytesRead;
-    //float temsen,temperature=0.0;
-    ///while (1) {
-       // if (ReadFile(hSerial, buffer, BUFFER_SIZE, &bytesRead, NULL)) {
-            // Leer datos del puerto serial
-    //if (ReadFile(hSerial, tempBuffer, sizeof(tempBuffer), &bytesRead, NULL)) {
-    //    // Agregar datos leídos al búfer acumulador
-    //    for (DWORD i = 0; i < bytesRead; i++) {
-    //        buffer[bufferIndex++] = tempBuffer[i];
-    //    } else {
-    //        printf("Error al leer del puerto serial\n");
-    //        break;
-    //    
-    //    }}
 
-        // Procesar datos en paquetes de 2 bytes
-        //while (bufferIndex >= 2) {
-        //    int16_t measurement = (int8_t)buffer[0] * 256 + (int8_t)buffer[1];
-        //    float temperature = ((measurement - 10000) / 100.0);
-//
-        //    // Imprimir la temperatura
-        //    printf("Temperatura: %.2f\n", temperature);
-//
-        //    // Desplazar el contenido del búfer
-        //    for (int i = 2; i < bufferIndex; i++) {
-        //        buffer[i - 2] = buffer[i];
-        //    }
-        //    bufferIndex -= 2;
-        //}
-        //} else {
-        //    printf("Error al leer del puerto serial\n");
-        //    break;
-        //}
 
 float arranque() {
     float numtemp;
@@ -335,15 +317,16 @@ LRESULT CALLBACK ProcediementoVentana(HWND hwnd,UINT msg, WPARAM wParam,LPARAM l
                                         MessageBox(hwnd, "Duración o frecuencia inválida", "Error", MB_ICONERROR);
                                         fclose(fpPuntos);
                                         return -1;
-                                    }                                    
+                                    }  
+
                                     // Realizar lecturas en bucle
                                     for (int i = 1; i < totalLecturas; i++) {
                                         float lectura = lec(); // Obtener la temperatura desde el sensor
+                                        printf("Temperatura: %.2f\n", lectura);
                                         double tiempo = (double)i / frecuenciaHz; // Calcular tiempo actual
                                         // Guardar datos en el archivo y enviarlos a GNUplot
                                         fprintf(fpPuntos, "%f %f\n", tiempo, lectura);
                                         fflush(fpPuntos);
-
                                         fprintf(fp,"replot\n");
                                         fflush(fp);
                                         Sleep(intervaloMs); // Esperar hasta la siguiente medición
